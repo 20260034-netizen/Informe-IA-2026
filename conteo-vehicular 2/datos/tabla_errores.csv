@@ -1,0 +1,16 @@
+horario,tipo,manual,pagina,diferencia,error_%
+ma–ana,auto,152,143,-9,5.9
+ma–ana,moto,22,3,-19,86.4
+ma–ana,bus,21,12,-9,42.9
+ma–ana,camion,4,6,2,50
+ma–ana,total,199,164,-35,17.6
+noche,auto,125,107,-18,14.4
+noche,moto,20,4,-16,80
+noche,bus,9,3,-6,66.7
+noche,camion,7,7,0,0
+noche,total,161,121,-40,24.8
+tarde,auto,132,133,1,0.8
+tarde,moto,34,12,-22,64.7
+tarde,bus,15,9,-6,40
+tarde,camion,9,6,-3,33.3
+tarde,total,190,160,-30,15.8

@@ -1,0 +1,17 @@
+id,horario,clase_real,clase_pagina,tiempo_s
+1,noche,auto,auto,4.9
+2,noche,auto,auto,16.6
+3,noche,moto,moto,33.2
+4,noche,auto,auto,40.5
+5,noche,auto,auto,50.0
+6,noche,custer,auto,62.9
+7,noche,combi,auto,111.1
+8,noche,combi,auto,167.5
+9,noche,camion,auto,206.4
+10,noche,moto,moto,342.3
+11,noche,bus,bus,376.1
+12,noche,combi,auto,387.3
+13,noche,auto,auto,440.2
+14,noche,auto,auto,440.4
+15,noche,custer,bus,507.1
+16,noche,moto,auto,587.8

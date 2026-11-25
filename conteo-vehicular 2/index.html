@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Conteo vehicular con COCO-SSD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --asfalto:#2E3236; --asfalto-2:#41464B; --berma:#E9EAE6; --papel:#F7F7F4;
+  --linea:#F2C230; --naranja:#E8741E; --texto:#1F2326; --suave:#5C6268;
+  --borde:#CFD1CC; --ok:#2F7D4F;
+  --fondo:var(--papel); --panel:#FFFFFF;
+  color-scheme: light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root{ --fondo:#24272A; --panel:#2E3236; --texto:#ECEDEA; --suave:#A7ACB0; --borde:#4A4F54; --berma:#383C40; color-scheme:dark; }
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0}
+body{background:var(--fondo);color:var(--texto);font-family:"Barlow",system-ui,"Segoe UI",Arial,sans-serif;font-size:16px;line-height:1.45}
+header{background:var(--asfalto);color:#F4F4F1;padding:18px clamp(16px,4vw,40px) 22px;position:relative}
+header::after{content:"";position:absolute;left:0;right:0;bottom:0;height:6px;
+  background:repeating-linear-gradient(90deg,var(--linea) 0 48px,transparent 48px 80px)}
+h1{font-family:"Barlow Condensed","Arial Narrow",sans-serif;font-weight:700;font-size:clamp(28px,4vw,40px);margin:0;letter-spacing:.2px}
+header p{margin:4px 0 0;color:#C9CCCF;max-width:70ch}
+main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;padding:24px clamp(16px,4vw,40px);max-width:1400px;margin:0 auto}
+@media (max-width:900px){main{grid-template-columns:1fr}}
+.escena{background:var(--asfalto);border-radius:10px;overflow:hidden;position:relative;min-height:240px;display:flex;align-items:center;justify-content:center}
+canvas{display:block;width:100%;height:auto;cursor:crosshair}
+.vacio{color:#D7D9D6;text-align:center;padding:48px 20px}
+.vacio strong{font-family:"Barlow Condensed",sans-serif;font-size:24px;display:block;color:#fff}
+.aviso{margin:10px 0 0;color:var(--suave);font-size:15px;min-height:1.4em}
+.barra{height:6px;background:var(--berma);border-radius:3px;margin-top:10px;overflow:hidden}
+.barra i{display:block;height:100%;width:0;background:var(--naranja);transition:width .2s}
+aside{display:flex;flex-direction:column;gap:18px}
+section.bloque{background:var(--panel);border:1px solid var(--borde);border-radius:8px;padding:16px}
+h2{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:20px;margin:0 0 10px}
+label{display:block;font-weight:500;margin:10px 0 4px}
+input[type=text],select{width:100%;padding:8px 10px;border:1px solid var(--borde);border-radius:6px;background:var(--fondo);color:var(--texto);font:inherit}
+input[type=range]{width:100%;accent-color:var(--naranja)}
+.fila{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+button{font:inherit;font-weight:600;padding:9px 14px;border-radius:6px;border:1px solid var(--borde);background:var(--fondo);color:var(--texto);cursor:pointer}
+button.principal{background:var(--naranja);border-color:var(--naranja);color:#fff}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--linea);outline-offset:2px}
+.archivo{display:block;border:2px dashed var(--borde);border-radius:8px;padding:14px;text-align:center;cursor:pointer;font-weight:500}
+.archivo input{display:none}
+.conteos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.conteo{border-left:5px solid var(--c);padding:4px 0 4px 10px}
+.conteo b{font-family:"Barlow Condensed",sans-serif;font-size:38px;line-height:1;display:block}
+.conteo span{color:var(--suave)}
+.total{margin-top:12px;padding-top:10px;border-top:1px solid var(--borde);display:flex;justify-content:space-between;align-items:baseline}
+.total b{font-family:"Barlow Condensed",sans-serif;font-size:30px}
+.tabla{grid-column:1/-1;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{padding:6px 10px;border-bottom:1px solid var(--borde);text-align:right}
+th:first-child,td:first-child{text-align:left}
+th{font-weight:600;color:var(--suave)}
+.ayuda{color:var(--suave);font-size:14px;margin:6px 0 0}
+.muestra{grid-column:1/-1}
+.galeria{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-top:14px}
+.ficha{border:1px solid var(--borde);border-radius:8px;padding:8px;background:var(--fondo)}
+.ficha.lista{border-color:var(--ok);box-shadow:inset 0 0 0 1px var(--ok)}
+.ficha img{width:100%;height:120px;object-fit:contain;background:#111;border-radius:4px;display:block}
+.ficha p{margin:6px 0 4px;font-size:14px;color:var(--suave)}
+.ficha p b{color:var(--texto)}
+.ficha select{padding:6px}
+input[type=number]{width:90px;padding:8px 10px;border:1px solid var(--borde);border-radius:6px;background:var(--fondo);color:var(--texto);font:inherit}
+</style>
+</head>
+<body>
+<header>
+  <h1>Conteo y clasificación vehicular</h1>
+  <p>Carga un video de tráfico, traza la línea de conteo sobre la pista y la página cuenta autos, motos, buses y camiones con el modelo COCO-SSD. Todo se procesa en tu computadora: el video no se sube a ningún lado.</p>
+</header>
+
+<main>
+  <div>
+    <div class="escena" id="escena">
+      <div class="vacio" id="vacio"><strong>Todavía no hay video</strong>Elige un archivo en el panel para empezar.</div>
+      <canvas id="lienzo" hidden></canvas>
+    </div>
+    <div class="barra" aria-hidden="true"><i id="progreso"></i></div>
+    <p class="aviso" id="aviso" role="status">Cargando el modelo COCO-SSD...</p>
+  </div>
+
+  <aside>
+    <section class="bloque">
+      <h2>1. Video</h2>
+      <label class="archivo">Elegir video (MP4 o WebM)
+        <input type="file" id="archivo" accept="video/*">
+      </label>
+      <label for="horario">Horario o nombre de la grabación</label>
+      <input type="text" id="horario" placeholder="Ej.: mañana, Av. Javier Prado">
+    </section>
+
+    <section class="bloque">
+      <h2>2. Ajustes</h2>
+      <label for="umbral">Confianza mínima: <span id="umbralTxt">0.40</span></label>
+      <input type="range" id="umbral" min="0.2" max="0.9" step="0.05" value="0.4">
+      <p class="ayuda">Más bajo cuenta más vehículos pero confunde sombras; más alto se le escapan.</p>
+      <label for="modelo">Versión del modelo</label>
+      <select id="modelo">
+        <option value="mobilenet_v2" selected>MobileNet v2 (más preciso)</option>
+        <option value="lite_mobilenet_v2">MobileNet v2 lite (rápido)</option>
+      </select>
+      <label for="zona">Zona de análisis</label>
+      <select id="zona">
+        <option value="linea" selected>Solo alrededor de la línea (recomendado)</option>
+        <option value="todo">Toda la imagen</option>
+      </select>
+      <p class="ayuda">El modelo reduce cada imagen a 300 × 300 píxeles. Recortar la zona de la línea hace que los autos lejanos se vean más grandes y se detecten mejor.</p>
+      <label for="mosaico">Precisión para vehículos pequeños</label>
+      <select id="mosaico">
+        <option value="1">Normal</option>
+        <option value="2" selected>Alta: divide la zona en 2 partes (más lento)</option>
+        <option value="4">Muy alta: divide la zona en 4 partes (mucho más lento)</option>
+      </select>
+      <label for="umbralMoto">Confianza mínima para motos: <span id="umbralMotoTxt">0.25</span></label>
+      <input type="range" id="umbralMoto" min="0.1" max="0.9" step="0.05" value="0.25">
+      <p class="ayuda">Las motos se ven pequeñas y el modelo les da puntajes bajos, por eso tienen su propio umbral.</p>
+      <label for="fps">Cuadros analizados por segundo de video</label>
+      <select id="fps">
+        <option value="5">5</option>
+        <option value="10" selected>10</option>
+        <option value="15">15</option>
+      </select>
+      <p class="ayuda">Usa el mismo valor en todos los videos para que los resultados sean comparables.</p>
+    </section>
+
+    <section class="bloque">
+      <h2>3. Conteo</h2>
+      <p class="ayuda" id="pasoLinea">Haz clic en dos puntos del video para trazar la línea de conteo.</p>
+      <div class="fila">
+        <button class="principal" id="btnIniciar" disabled>Iniciar conteo</button>
+        <button id="btnLinea" disabled>Trazar otra línea</button>
+        <button id="btnReiniciar" disabled>Reiniciar</button>
+      </div>
+    </section>
+
+    <section class="bloque">
+      <h2>Vehículos contados</h2>
+      <div class="conteos" id="conteos"></div>
+      <div class="total"><span>Total</span><b id="total">0</b></div>
+      <div class="fila">
+        <button id="btnEventos" disabled>Descargar cruces (CSV)</button>
+        <button id="btnMinutos" disabled>Descargar por minuto (CSV)</button>
+      </div>
+    </section>
+  </aside>
+
+  <section class="bloque tabla">
+    <h2>Conteo por minuto</h2>
+    <table>
+      <thead><tr><th>Minuto</th><th>Autos</th><th>Motos</th><th>Buses</th><th>Camiones</th><th>Total</th></tr></thead>
+      <tbody id="tablaMin"><tr><td colspan="6">Aparecerá cuando empiece el conteo.</td></tr></tbody>
+    </table>
+  </section>
+  <section class="bloque muestra">
+    <h2>Muestra de clasificación</h2>
+    <p class="ayuda">Cuando termine el conteo, arma la muestra. La página escoge vehículos al azar entre los que contó y te muestra la foto de cada uno. Mira la foto y elige qué vehículo es de verdad. Si la foto no muestra ningún vehículo (una sombra, un reflejo), elige "ninguno".</p>
+    <div class="fila" style="align-items:center">
+      <label for="tamMuestra" style="margin:0">Vehículos de este video:</label>
+      <input type="number" id="tamMuestra" min="5" max="100" value="17">
+      <button id="btnMuestra" disabled>Armar muestra</button>
+      <button class="principal" id="btnBajarMuestra" disabled>Descargar muestra (CSV)</button>
+    </div>
+    <p class="ayuda" id="estadoMuestra"></p>
+    <div class="galeria" id="galeria"></div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+<script>
+// ---------- Clases que se cuentan (COCO -> español) ----------
+const CLASES = {
+  car:        {col:'auto',   txt:'Autos',    sing:'Auto',    color:'#E8741E'},
+  motorcycle: {col:'moto',   txt:'Motos',    sing:'Moto',    color:'#2F7D9A'},
+  bus:        {col:'bus',    txt:'Buses',    sing:'Bus',    color:'#2F7D4F'},
+  truck:      {col:'camion', txt:'Camiones', sing:'Camión', color:'#8A5BB0'}
+};
+const COLS = Object.values(CLASES).map(c => c.col);
+
+// ---------- Estado ----------
+const $ = id => document.getElementById(id);
+const video = document.createElement('video');
+video.muted = true; video.playsInline = true; video.preload = 'auto';
+const lienzo = $('lienzo'), ctx = lienzo.getContext('2d');
+let modelo = null, modeloBase = null;
+let linea = [];            // [{x,y},{x,y}] en coordenadas del video
+let corriendo = false, detener = false;
+let tracks = [], siguienteId = 1;
+let eventos = [];          // un registro por vehículo contado
+let porMinuto = {};        // minuto -> {auto, moto, bus, camion}
+let tiempo = 0, nombreArchivo = '';
+
+// ---------- Modelo ----------
+async function cargarModelo(base){
+  if (modelo && modeloBase === base) return;
+  aviso('Cargando el modelo COCO-SSD (' + base + ')...');
+  modelo = await cocoSsd.load({base});
+  modeloBase = base;
+  aviso(video.src ? 'Modelo listo.' : 'Modelo listo. Elige un video para empezar.');
+}
+cargarModelo($('modelo').value).catch(() =>
+  aviso('No se pudo cargar el modelo. Revisa tu conexión a internet y recarga la página.'));
+$('modelo').addEventListener('change', e => cargarModelo(e.target.value));
+$('zona').addEventListener('change', () => { if (video.src) dibujar([]); });
+
+// ---------- Interfaz ----------
+function aviso(t){ $('aviso').textContent = t; }
+$('umbral').addEventListener('input', e => $('umbralTxt').textContent = Number(e.target.value).toFixed(2));
+$('umbralMoto').addEventListener('input', e => $('umbralMotoTxt').textContent = Number(e.target.value).toFixed(2));
+
+function pintarConteos(){
+  const tot = {}; COLS.forEach(c => tot[c] = 0);
+  eventos.forEach(ev => tot[ev.clase]++);
+  $('conteos').innerHTML = Object.values(CLASES).map(c =>
+    `<div class="conteo" style="--c:${c.color}"><b>${tot[c.col]}</b><span>${c.txt}</span></div>`).join('');
+  $('total').textContent = eventos.length;
+  const mins = Object.keys(porMinuto).map(Number).sort((a,b) => a-b);
+  $('tablaMin').innerHTML = mins.length ? mins.map(m => {
+    const r = porMinuto[m], t = COLS.reduce((s,c) => s + r[c], 0);
+    return `<tr><td>${m}</td>${COLS.map(c => `<td>${r[c]}</td>`).join('')}<td>${t}</td></tr>`;
+  }).join('') : '<tr><td colspan="6">Aparecerá cuando empiece el conteo.</td></tr>';
+  const hay = eventos.length > 0;
+  $('btnEventos').disabled = !hay; $('btnMinutos').disabled = !hay; $('btnMuestra').disabled = !hay || corriendo;
+}
+pintarConteos();
+
+// ---------- Cargar video ----------
+$('archivo').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  nombreArchivo = f.name;
+  video.src = URL.createObjectURL(f);
+  video.addEventListener('loadeddata', async () => {
+    lienzo.width = video.videoWidth; lienzo.height = video.videoHeight;
+    $('vacio').hidden = true; lienzo.hidden = false;
+    await irA(0);
+    reiniciar();
+    aviso('Video cargado (' + formato(video.duration) + '). Traza la línea de conteo con dos clics.');
+  }, {once:true});
+});
+
+// Mueve el video al instante t y espera a que el cuadro nuevo esté realmente pintado.
+// En grabaciones de pantalla, Chrome a veces avisa "listo" antes de tener el cuadro,
+// y la página analizaría una imagen vieja (se ve trabada y se pierden vehículos).
+function irA(t){
+  return new Promise(res => {
+    let hecho = false;
+    const fin = () => { if (hecho) return; hecho = true; dibujar([]); res(); };
+    if (Math.abs(video.currentTime - t) < 1e-3 && video.readyState >= 2) return fin();
+    video.addEventListener('seeked', () => {
+      if ('requestVideoFrameCallback' in video){
+        video.requestVideoFrameCallback(() => fin());
+        setTimeout(fin, 250);   // respaldo si el cuadro ya estaba pintado
+      } else fin();
+    }, {once:true});
+    video.currentTime = t;
+  });
+}
+
+// ---------- Línea de conteo ----------
+lienzo.addEventListener('click', e => {
+  if (corriendo || linea.length >= 2) return;
+  const r = lienzo.getBoundingClientRect();
+  linea.push({x:(e.clientX - r.left) * lienzo.width / r.width, y:(e.clientY - r.top) * lienzo.height / r.height});
+  dibujar([]);
+  if (linea.length === 2){
+    $('pasoLinea').textContent = 'Línea lista. Presiona Iniciar conteo.';
+    $('btnIniciar').disabled = !modelo; $('btnLinea').disabled = false;
+  } else {
+    $('pasoLinea').textContent = 'Ahora haz clic en el segundo punto.';
+  }
+});
+$('btnLinea').addEventListener('click', () => {
+  if (corriendo) return;
+  linea = []; dibujar([]);
+  $('btnIniciar').disabled = true;
+  $('pasoLinea').textContent = 'Haz clic en dos puntos del video para trazar la línea de conteo.';
+});
+
+// ---------- Dibujo ----------
+function dibujar(dets, destello){
+  ctx.drawImage(video, 0, 0, lienzo.width, lienzo.height);
+  const g = Math.max(2, lienzo.width / 400);
+  dets.forEach(d => {
+    const c = CLASES[d.class]; const [x,y,w,h] = d.bbox;
+    ctx.strokeStyle = c.color; ctx.lineWidth = g; ctx.strokeRect(x,y,w,h);
+    ctx.font = `600 ${Math.round(g*7)}px Barlow, sans-serif`;
+    const t = `${c.sing} ${(d.score*100).toFixed(0)}%`;
+    const tw = ctx.measureText(t).width + g*4;
+    ctx.fillStyle = c.color; ctx.fillRect(x, y - g*9, tw, g*9);
+    ctx.fillStyle = '#fff'; ctx.fillText(t, x + g*2, y - g*2.2);
+  });
+  tracks.forEach(t => { if (!t.perdido){ ctx.fillStyle = t.contado ? '#F2C230' : '#fff';
+    ctx.beginPath(); ctx.arc(t.cx, t.cy, g*1.6, 0, Math.PI*2); ctx.fill(); }});
+  if (linea.length === 2 && $('zona').value === 'linea'){ const z = zonaAnalisis();
+    ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = g; ctx.setLineDash([g*4, g*4]); ctx.strokeRect(z.x, z.y, z.w, z.h); ctx.restore(); }
+  linea.forEach(p => { ctx.fillStyle = '#F2C230'; ctx.beginPath(); ctx.arc(p.x, p.y, g*3, 0, Math.PI*2); ctx.fill(); });
+  if (linea.length === 2){
+    ctx.save(); ctx.strokeStyle = destello ? '#FFFFFF' : '#F2C230'; ctx.lineWidth = g*2.2;
+    ctx.setLineDash([g*10, g*6]); ctx.beginPath();
+    ctx.moveTo(linea[0].x, linea[0].y); ctx.lineTo(linea[1].x, linea[1].y); ctx.stroke(); ctx.restore();
+  }
+}
+
+// ---------- Zona de análisis alrededor de la línea ----------
+const recorte = document.createElement('canvas'), rctx = recorte.getContext('2d');
+function zonaAnalisis(){
+  if ($('zona').value === 'todo' || linea.length < 2) return {x:0, y:0, w:lienzo.width, h:lienzo.height};
+  const largo = Math.hypot(linea[1].x - linea[0].x, linea[1].y - linea[0].y);
+  const m = Math.max(largo * 0.45, Math.hypot(lienzo.width, lienzo.height) * 0.08);
+  const x0 = Math.max(0, Math.min(linea[0].x, linea[1].x) - m), y0 = Math.max(0, Math.min(linea[0].y, linea[1].y) - m);
+  const x1 = Math.min(lienzo.width, Math.max(linea[0].x, linea[1].x) + m), y1 = Math.min(lienzo.height, Math.max(linea[0].y, linea[1].y) + m);
+  return {x:x0, y:y0, w:x1 - x0, h:y1 - y0};
+}
+// Divide la zona en partes que se solapan 20%, para que cada parte llegue al modelo con más detalle.
+function partes(z, n){
+  if (n === 1) return [z];
+  const filas = n === 4 ? 2 : (z.h > z.w ? 2 : 1), cols = n === 4 ? 2 : (z.h > z.w ? 1 : 2);
+  const w = z.w / cols, h = z.h / filas, ow = w * 0.2, oh = h * 0.2, out = [];
+  for (let f = 0; f < filas; f++) for (let c = 0; c < cols; c++){
+    const x0 = Math.max(z.x, z.x + c*w - ow), y0 = Math.max(z.y, z.y + f*h - oh);
+    const x1 = Math.min(z.x + z.w, z.x + (c+1)*w + ow), y1 = Math.min(z.y + z.h, z.y + (f+1)*h + oh);
+    out.push({x:x0, y:y0, w:x1 - x0, h:y1 - y0});
+  }
+  return out;
+}
+async function detectar(umbral){
+  const umbralMoto = Number($('umbralMoto').value), minimo = Math.min(umbral, umbralMoto);
+  let dets = [];
+  for (const z of partes(zonaAnalisis(), Number($('mosaico').value))){
+    recorte.width = Math.round(z.w); recorte.height = Math.round(z.h);
+    rctx.drawImage(video, z.x, z.y, z.w, z.h, 0, 0, recorte.width, recorte.height);
+    const crudas = await modelo.detect(recorte, 50, minimo);
+    dets = dets.concat(crudas
+      .filter(d => CLASES[d.class] && d.score >= (d.class === 'motorcycle' ? umbralMoto : umbral))
+      .map(d => ({...d, bbox:[d.bbox[0] + z.x, d.bbox[1] + z.y, d.bbox[2], d.bbox[3]]})));
+  }
+  return quitarDuplicados(dets);
+}
+function iou(a, b){
+  const x1 = Math.max(a[0], b[0]), y1 = Math.max(a[1], b[1]);
+  const x2 = Math.min(a[0] + a[2], b[0] + b[2]), y2 = Math.min(a[1] + a[3], b[1] + b[3]);
+  const inter = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+  return inter / (a[2]*a[3] + b[2]*b[3] - inter);
+}
+// COCO-SSD a veces marca el mismo vehículo como "car" y "truck" a la vez: se queda la caja más segura.
+function quitarDuplicados(dets){
+  const orden = [...dets].sort((a,b) => b.score - a.score), quedan = [];
+  orden.forEach(d => { if (!quedan.some(q => iou(q.bbox, d.bbox) > 0.6)) quedan.push(d); });
+  return quedan;
+}
+
+// ---------- Geometría ----------
+function lado(a, b, p){ return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x); }
+function seCruzan(p1, p2, a, b){
+  const d1 = lado(a,b,p1), d2 = lado(a,b,p2), d3 = lado(p1,p2,a), d4 = lado(p1,p2,b);
+  return ((d1 > 0) !== (d2 > 0)) && ((d3 > 0) !== (d4 > 0));
+}
+
+// ---------- Seguimiento por centroide ----------
+// Cada vehículo detectado se empareja con el track más cercano del cuadro anterior.
+// Cuando el trayecto del centro de un track cruza la línea, se cuenta una sola vez.
+function actualizarTracks(dets, t){
+  const diag = Math.hypot(lienzo.width, lienzo.height);
+  const maxDist = diag * 0.08 * (10 / Number($('fps').value));
+  const cent = dets.map(d => ({cx:d.bbox[0] + d.bbox[2]/2, cy:d.bbox[1] + d.bbox[3]/2, d}));
+  const pares = [];
+  tracks.forEach((tr, i) => cent.forEach((c, j) => {
+    const dist = Math.hypot(tr.cx + tr.vx - c.cx, tr.cy + tr.vy - c.cy);
+    if (dist < maxDist) pares.push({i, j, dist});
+  }));
+  pares.sort((a,b) => a.dist - b.dist);
+  const usadoT = new Set(), usadoD = new Set();
+  let huboConteo = false;
+  pares.forEach(({i, j}) => {
+    if (usadoT.has(i) || usadoD.has(j)) return;
+    usadoT.add(i); usadoD.add(j);
+    const tr = tracks[i], c = cent[j];
+    const antes = {x:tr.cx, y:tr.cy}, ahora = {x:c.cx, y:c.cy};
+    tr.vx = 0.6 * (c.cx - tr.cx) + 0.4 * tr.vx; tr.vy = 0.6 * (c.cy - tr.cy) + 0.4 * tr.vy;
+    tr.cx = c.cx; tr.cy = c.cy; tr.perdidos = 0; tr.perdido = false; tr.vistas++;
+    tr.votos[c.d.class] = (tr.votos[c.d.class] || 0) + 1;
+    tr.confs.push(c.d.score);
+    if (!tr.contado && tr.vistas >= 2 && linea.length === 2 && seCruzan(antes, ahora, linea[0], linea[1])){
+      tr.contado = true; huboConteo = true;
+      registrar(tr, t, c.d.bbox);
+    }
+  });
+  tracks.forEach((tr, i) => { if (!usadoT.has(i)){ tr.perdidos++; tr.perdido = true; }});
+  tracks = tracks.filter(tr => tr.perdidos <= 5);
+  cent.forEach((c, j) => {
+    if (usadoD.has(j)) return;
+    tracks.push({id:siguienteId++, cx:c.cx, cy:c.cy, votos:{[c.d.class]:1}, confs:[c.d.score], perdidos:0, perdido:false, contado:false, vx:0, vy:0, vistas:1});
+  });
+  return huboConteo;
+}
+
+// Guarda una foto pequeña del vehículo en el momento en que cruza la línea.
+const fotoCanvas = document.createElement('canvas'), fctx = fotoCanvas.getContext('2d');
+function foto(b){
+  const m = 0.25, x = Math.max(0, b[0] - b[2]*m), y = Math.max(0, b[1] - b[3]*m);
+  const w = Math.min(lienzo.width - x, b[2]*(1 + 2*m)), h = Math.min(lienzo.height - y, b[3]*(1 + 2*m));
+  const esc = Math.min(4, 240 / Math.max(w, h));
+  fotoCanvas.width = Math.max(1, Math.round(w*esc)); fotoCanvas.height = Math.max(1, Math.round(h*esc));
+  fctx.imageSmoothingQuality = 'high';
+  fctx.drawImage(video, x, y, w, h, 0, 0, fotoCanvas.width, fotoCanvas.height);
+  return fotoCanvas.toDataURL('image/jpeg', 0.85);
+}
+function registrar(tr, t, bbox){
+  const cls = Object.entries(tr.votos).sort((a,b) => b[1]-a[1])[0][0];
+  const col = CLASES[cls].col;
+  const minuto = Math.floor(t / 60) + 1;
+  const conf = tr.confs.reduce((s,x) => s+x, 0) / tr.confs.length;
+  eventos.push({id:tr.id, tiempo_s:+t.toFixed(2), minuto, clase:col, confianza:+conf.toFixed(3), foto: bbox ? foto(bbox) : null});
+  if (!porMinuto[minuto]){ porMinuto[minuto] = {}; COLS.forEach(c => porMinuto[minuto][c] = 0); }
+  porMinuto[minuto][col]++;
+}
+
+// ---------- Bucle principal: avanza el video cuadro por cuadro ----------
+async function procesar(){
+  corriendo = true; detener = false;
+  $('btnIniciar').textContent = 'Pausar'; $('btnLinea').disabled = true; $('btnReiniciar').disabled = true;
+  ['umbral','umbralMoto','mosaico','modelo','fps','zona'].forEach(id => $(id).disabled = true);
+  const paso = 1 / Number($('fps').value), umbral = Number($('umbral').value);
+  const t0 = performance.now(); let cuadros = 0;
+  while (!detener && tiempo <= video.duration){
+    await irA(tiempo);
+    const dets = await detectar(umbral);
+    const conto = actualizarTracks(dets, tiempo);
+    dibujar(dets, conto);
+    if (conto) pintarConteos();
+    cuadros++; tiempo += paso;
+    $('progreso').style.width = Math.min(100, tiempo / video.duration * 100) + '%';
+    if (cuadros % 10 === 0){
+      const vel = cuadros / ((performance.now() - t0) / 1000);
+      aviso(`Analizando ${formato(tiempo)} de ${formato(video.duration)}. ${eventos.length} vehículos contados. Velocidad: ${vel.toFixed(1)} cuadros/s. La imagen avanza a saltos porque se analiza foto por foto; es normal.`);
+    }
+  }
+  corriendo = false;
+  $('btnReiniciar').disabled = false;
+  if (tiempo > video.duration){
+    $('btnIniciar').textContent = 'Terminado'; $('btnIniciar').disabled = true;
+    aviso(`Listo: ${eventos.length} vehículos contados en ${formato(video.duration)}. Descarga los CSV para el análisis.`);
+  } else {
+    $('btnIniciar').textContent = 'Continuar';
+    aviso(`En pausa en ${formato(tiempo)}. ${eventos.length} vehículos contados.`);
+  }
+  pintarConteos();
+}
+$('btnIniciar').addEventListener('click', () => {
+  if (corriendo){ detener = true; return; }
+  if (!modelo || linea.length < 2) return;
+  procesar();
+});
+
+function reiniciar(){
+  tracks = []; siguienteId = 1; eventos = []; porMinuto = {}; tiempo = 0;
+  muestra = []; $('galeria').innerHTML = ''; $('estadoMuestra').textContent = ''; $('btnBajarMuestra').disabled = true;
+  $('progreso').style.width = '0%';
+  $('btnIniciar').textContent = 'Iniciar conteo';
+  $('btnIniciar').disabled = !(modelo && linea.length === 2);
+  $('btnReiniciar').disabled = false;
+  ['umbral','umbralMoto','mosaico','modelo','fps','zona'].forEach(id => $(id).disabled = false);
+  pintarConteos();
+}
+$('btnReiniciar').addEventListener('click', async () => {
+  if (corriendo) return;
+  reiniciar(); await irA(0);
+  aviso('Conteo reiniciado. Puedes cambiar los ajustes o la línea antes de volver a empezar.');
+});
+
+// ---------- Exportar ----------
+function meta(){
+  return {video:nombreArchivo, horario:$('horario').value || 'sin nombre', modelo:modeloBase + '_' + $('zona').value + '_x' + $('mosaico').value + '_moto' + $('umbralMoto').value,
+          umbral:$('umbral').value, fps:$('fps').value};
+}
+function descargar(nombre, filas){
+  const csv = '\uFEFF' + filas.map(f => f.map(v => /[",;\n]/.test(String(v)) ? `"${String(v).replace(/"/g,'""')}"` : v).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
+  a.download = nombre; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+function base(){ return ($('horario').value || 'video').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w-]+/g,'_'); }
+$('btnEventos').addEventListener('click', () => {
+  const m = meta();
+  descargar(`cruces_${base()}.csv`, [['id','tiempo_s','minuto','clase','confianza','video','horario','modelo','umbral','fps'],
+    ...eventos.map(e => [e.id, e.tiempo_s, e.minuto, e.clase, e.confianza, m.video, m.horario, m.modelo, m.umbral, m.fps])]);
+});
+$('btnMinutos').addEventListener('click', () => {
+  const m = meta(); const total = Math.max(1, Math.ceil(video.duration / 60));
+  const filas = [];
+  for (let k = 1; k <= total; k++){
+    const r = porMinuto[k] || {auto:0,moto:0,bus:0,camion:0};
+    filas.push([m.horario, k, ...COLS.map(c => r[c]), COLS.reduce((s,c) => s + r[c], 0)]);
+  }
+  descargar(`por_minuto_${base()}.csv`, [['horario','minuto',...COLS,'total'], ...filas]);
+});
+
+// ---------- Muestra de clasificación ----------
+let muestra = [];
+const OPCIONES = ['auto','moto','bus','camion','combi','custer','mototaxi','ninguno'];
+const NOMBRE = {auto:'auto', moto:'moto', bus:'bus', camion:'camión', combi:'combi', custer:'cúster', mototaxi:'mototaxi', ninguno:'ninguno (no hay vehículo)'};
+function estadoMuestra(){
+  const listas = muestra.filter(m => m.real).length;
+  $('estadoMuestra').textContent = muestra.length ? `${listas} de ${muestra.length} revisados.` : '';
+  $('btnBajarMuestra').disabled = listas === 0;
+}
+$('btnMuestra').addEventListener('click', () => {
+  const conFoto = eventos.filter(e => e.foto);
+  const n = Math.min(Number($('tamMuestra').value) || 17, conFoto.length);
+  const mezcla = [...conFoto];
+  for (let i = mezcla.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [mezcla[i], mezcla[j]] = [mezcla[j], mezcla[i]]; }
+  muestra = mezcla.slice(0, n).sort((a,b) => a.tiempo_s - b.tiempo_s).map(e => ({...e, real:''}));
+  $('galeria').innerHTML = muestra.map((m, i) => `
+    <div class="ficha" id="ficha${i}">
+      <img src="${m.foto}" alt="Vehículo contado en el segundo ${m.tiempo_s}">
+      <p>Segundo ${m.tiempo_s} · La página dijo: <b>${NOMBRE[m.clase]}</b></p>
+      <select data-i="${i}" aria-label="Qué vehículo es de verdad">
+        <option value="">¿Qué es de verdad?</option>
+        ${OPCIONES.map(o => `<option value="${o}">${NOMBRE[o]}</option>`).join('')}
+      </select>
+    </div>`).join('');
+  $('galeria').querySelectorAll('select').forEach(sel => sel.addEventListener('change', e => {
+    const i = Number(e.target.dataset.i); muestra[i].real = e.target.value;
+    $('ficha' + i).classList.toggle('lista', !!e.target.value); estadoMuestra();
+  }));
+  estadoMuestra();
+  if (n < (Number($('tamMuestra').value) || 17)) $('estadoMuestra').textContent += ` Solo había ${n} vehículos con foto en este video.`;
+});
+$('btnBajarMuestra').addEventListener('click', () => {
+  const faltan = muestra.filter(m => !m.real).length;
+  const h = $('horario').value || 'sin nombre';
+  descargar(`muestra_${base()}.csv`, [['id','horario','clase_real','clase_pagina','tiempo_s'],
+    ...muestra.filter(m => m.real).map((m, i) => [i + 1, h, m.real, m.clase, m.tiempo_s])]);
+  if (faltan) $('estadoMuestra').textContent = `Descargado. Ojo: ${faltan} vehículos quedaron sin revisar y no se incluyeron.`;
+});
+
+function formato(s){
+  if (!isFinite(s)) return '--:--';
+  const m = Math.floor(s/60), x = Math.floor(s%60);
+  return `${m}:${String(x).padStart(2,'0')}`;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+horario,minuto,auto,moto,bus,camion,total
+tarde,1,21,3,0,0,24
+tarde,2,12,2,3,0,17
+tarde,3,14,0,2,1,17
+tarde,4,15,3,0,0,18
+tarde,5,5,0,1,1,7
+tarde,6,11,0,0,1,12
+tarde,7,19,1,0,1,21
+tarde,8,10,1,0,1,12
+tarde,9,11,1,2,1,15
+tarde,10,15,1,1,0,17

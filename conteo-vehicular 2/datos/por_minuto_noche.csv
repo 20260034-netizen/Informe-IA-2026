@@ -1,0 +1,11 @@
+horario,minuto,auto,moto,bus,camion,total
+noche,1,21,2,0,0,23
+noche,2,8,0,1,0,9
+noche,3,15,0,0,2,17
+noche,4,11,0,0,0,11
+noche,5,3,0,0,0,3
+noche,6,9,1,0,2,12
+noche,7,8,0,1,1,10
+noche,8,13,1,0,1,15
+noche,9,10,0,1,0,11
+noche,10,9,0,0,1,10
